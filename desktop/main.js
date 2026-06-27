@@ -51,8 +51,12 @@ const CHROMIUM_PERFORMANCE_SWITCHES = [
   ['use-angle', 'd3d11'],
 ];
 for (const [name, value] of CHROMIUM_PERFORMANCE_SWITCHES) {
-  if (value == null) app.commandLine.appendSwitch(name);
-  else app.commandLine.appendSwitch(name, value);
+  try {
+    if (value == null) app.commandLine.appendSwitch(name);
+    else app.commandLine.appendSwitch(name, value);
+  } catch (e) {
+    // Electron version compatibility — skip unsupported switches
+  }
 }
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 

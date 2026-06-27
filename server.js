@@ -191,7 +191,11 @@ function serveStatic(res, filePath) {
   const ext = path.extname(filePath);
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404); res.end('Not Found'); return; }
-    res.writeHead(200, { 'Content-Type': MIME[ext] || 'text/plain' });
+    res.writeHead(200, {
+      'Content-Type': MIME[ext] || 'text/plain',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=86400',
+    });
     res.end(data);
   });
 }
@@ -2778,10 +2782,12 @@ async function handleQQSongComments(id, mid, limit, offset) {
   }, { headers: { Referer: 'https://y.qq.com/n/ryqq/songDetail/' + encodeURIComponent(mid || topid) } });
   const hotList = body && body.hot_comment && body.hot_comment.commentlist;
   const normalList = body && body.comment && body.comment.commentlist;
-  const raw = (offset === 0 && Array.isArray(hotList) && hotList.length) ? hotList : (normalList || []);
-  const comments = (raw || []).map(mapQQComment).filter(c => c.content);
+  const comments = (normalList || []).map(mapQQComment).filter(c2 => c2.content);
+  const hotComments = (offset === 0 && Array.isArray(hotList) && hotList.length)
+    ? hotList.map(mapQQComment).filter(c2 => c2.content)
+    : [];
   const total = Number(body && body.comment && (body.comment.commenttotal || body.comment.comment_total)) || comments.length;
-  return { provider: 'qq', id: topid, total, comments, hot: !!(offset === 0 && Array.isArray(hotList) && hotList.length) };
+  return { provider: 'qq', id: topid, total, comments, hotComments, hot: hotComments.length > 0 };
 }
 
 function decodeHtmlEntities(text) {
@@ -3244,6 +3250,18 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost:' + PORT);
   const pn = url.pathname;
 
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Range',
+      'Access-Control-Max-Age': '86400',
+    });
+    res.end();
+    return;
+  }
+
   if (pn === '/api/app/version') {
     sendJSON(res, {
       name: APP_PACKAGE.name || 'mineradio',
@@ -3549,10 +3567,11 @@ const server = http.createServer(async (req, res) => {
       const limit = Math.max(6, Math.min(50, parseInt(url.searchParams.get('limit') || '20', 10) || 20));
       const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
       const data = await handleQQSongComments(id, mid, limit, offset);
+      if (!data.hotComments) data.hotComments = [];
       sendJSON(res, data);
     } catch (err) {
       console.error('[QQSongComments]', err);
-      sendJSON(res, { provider: 'qq', error: err.message, comments: [] }, 500);
+      sendJSON(res, { provider: 'qq', error: err.message, comments: [], hotComments: [] }, 500);
     }
     return;
   }
@@ -4021,32 +4040,38 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ---------- 歌曲评论 ----------
+  // ---------- 歌曲评论 (含热评分离) ----------
   if (pn === '/api/song/comments') {
     try {
       const id = url.searchParams.get('id');
       const limit = Math.max(6, Math.min(50, parseInt(url.searchParams.get('limit') || '20', 10) || 20));
       const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
-      if (!id) { sendJSON(res, { error: 'Missing song id', comments: [] }, 400); return; }
+      if (!id) { sendJSON(res, { error: 'Missing song id', comments: [], hotComments: [] }, 400); return; }
       const r = await comment_music({ id, limit, offset, cookie: userCookie, timestamp: Date.now() });
       const body = r.body || r || {};
-      const raw = body.hotComments && offset === 0 ? body.hotComments : (body.comments || []);
-      const comments = (raw || []).map(c => ({
-        id: c.commentId,
-        content: c.content || '',
-        likedCount: c.likedCount || 0,
-        time: c.time || 0,
-        user: c.user ? { id: c.user.userId, nickname: c.user.nickname || '', avatar: c.user.avatarUrl || '' } : null,
-      })).filter(c => c.content);
-      sendJSON(res, { id, total: body.total || 0, comments, hot: !!(body.hotComments && offset === 0), body });
+
+      const mapComment = c2 => ({
+        id: c2.commentId,
+        content: c2.content || '',
+        likedCount: c2.likedCount || 0,
+        time: c2.time || 0,
+        user: c2.user ? { id: c2.user.userId, nickname: c2.user.nickname || '', avatar: c2.user.avatarUrl || '' } : null,
+      });
+
+      const hotRaw = (offset === 0 && body.hotComments) ? body.hotComments : [];
+      const normalRaw = body.comments || [];
+      const hotComments = hotRaw.map(mapComment).filter(c2 => c2.content);
+      const comments = normalRaw.map(mapComment).filter(c2 => c2.content);
+
+      sendJSON(res, { id, total: body.total || 0, comments, hotComments, hot: hotComments.length > 0 });
     } catch (err) {
       console.error('[SongComments]', err);
-      sendJSON(res, { error: err.message, comments: [] }, 500);
+      sendJSON(res, { error: err.message, comments: [], hotComments: [] }, 500);
     }
     return;
   }
 
-  // ---------- 歌手主页 / 热门歌曲 ----------
+// ---------- 歌手主页 / 热门歌曲 ----------
   if (pn === '/api/artist/detail') {
     try {
       const id = url.searchParams.get('id');

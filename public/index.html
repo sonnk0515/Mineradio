@@ -2,9 +2,22 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Mineradio</title>
 <meta name="referrer" content="no-referrer">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mineradio">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<meta name="apple-touch-icon" href="/assets/icons/icon-192.png">
+<link rel="manifest" href="/manifest.json">
+<script>
+// Register PWA service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(function() {});
+}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&family=UnifrakturCook:wght@700&display=swap" rel="stylesheet">
 <script src="vendor/three.r128.min.js"></script>
 <script src="vendor/music-tempo.min.js"></script>
@@ -902,6 +915,15 @@ body.login-guide-active #login-guide-canvas{opacity:1}
 .comment-main,.artist-song-main{min-width:0;flex:1}
 .comment-meta,.artist-song-meta{font-size:10.5px;color:rgba(255,255,255,.38);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .comment-text{margin-top:4px;font-size:12px;line-height:1.55;color:rgba(255,255,255,.76);word-break:break-word}
+.hot-comment-section{margin-top:12px}
+.hot-comment-section-head{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.hot-comment-section-icon{font-size:14px;line-height:1}
+.hot-comment-section-label{font-size:11.5px;font-weight:800;letter-spacing:.10em;color:#f4d28a}
+.hot-comment-item{display:flex;gap:11px;padding:10px;border-radius:13px;border:1px solid rgba(244,210,138,.14);background:linear-gradient(105deg,rgba(244,210,138,.06),rgba(244,210,138,.02) 60%,rgba(0,245,212,.03));margin-bottom:7px;position:relative;transition:background .22s,border-color .22s,transform .18s,box-shadow .22s}
+.hot-comment-item:hover{background:linear-gradient(105deg,rgba(244,210,138,.10),rgba(244,210,138,.04) 60%,rgba(0,245,212,.05));border-color:rgba(244,210,138,.28);transform:translateY(-1px);box-shadow:0 8px 28px rgba(0,0,0,.18),0 0 18px rgba(244,210,138,.06)}
+.hot-comment-rank{width:22px;height:22px;border-radius:50%;background:rgba(244,210,138,.14);color:#f4d28a;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:5px}
+.hot-comment-like-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;background:rgba(244,210,138,.10);color:#f4d28a;font-size:10px;font-weight:700;margin-left:6px;white-space:nowrap}
+.hot-comment-like-badge svg{width:11px;height:11px;fill:currentColor}
 .artist-song-item{align-items:center;cursor:pointer;transition:background .18s,border-color .18s,transform .18s,box-shadow .18s}
 .artist-song-item:hover{background:rgba(255,255,255,.075);border-color:rgba(244,210,138,.25);transform:translateY(-1px);box-shadow:0 12px 32px rgba(0,0,0,.20)}
 .artist-song-rank{width:26px;color:rgba(244,210,138,.62);font-size:11px;font-variant-numeric:tabular-nums;text-align:center}
@@ -964,9 +986,10 @@ body.login-guide-active #login-guide-canvas{opacity:1}
 #loading-overlay.show{display:block}
 .spinner{display:none}
 @keyframes spin{to{transform:rotate(360deg)}}
-#drop-overlay{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;backdrop-filter:blur(10px)}
+#drop-overlay{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.85);display:none;flex-direction:column;align-items:center;justify-content:center;backdrop-filter:blur(10px)}
 #drop-overlay.show{display:flex}
 #drop-overlay .drop-text{font-size:18px;font-weight:300;color:rgba(255,255,255,0.65);letter-spacing:3px;border:2px dashed rgba(255,255,255,0.2);padding:50px 70px;border-radius:20px}
+#drop-overlay .drop-mobile-fallback{text-align:center}
 
 /* ---------- AI 深度加载角标 ---------- */
 #ai-depth-chip{position:fixed;z-index:7;top:80px;right:24px;background:rgba(10,10,16,0.85);border:1px solid rgba(244,210,138,0.32);padding:8px 14px;border-radius:14px;font-size:11px;color:var(--champagne);letter-spacing:.4px;display:none;align-items:center;gap:8px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
@@ -1840,6 +1863,143 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
   .fx-slider{grid-template-columns:74px minmax(0,1fr) 40px 28px;gap:8px;padding:8px}
   .lyric-color-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
+
+/* ===== Mobile PWA Enhancements ===== */
+:root{
+  --safe-inset-top:env(safe-area-inset-top,0px);
+  --safe-inset-bottom:env(safe-area-inset-bottom,0px);
+  --safe-inset-left:env(safe-area-inset-left,0px);
+  --safe-inset-right:env(safe-area-inset-right,0px);
+}
+@media (max-width:768px){
+  html,body{
+    -webkit-overflow-scrolling:touch;
+    -webkit-tap-highlight-color:transparent;
+    -webkit-user-select:none;
+    user-select:none;
+    touch-action:manipulation;
+  }
+  body{padding:var(--safe-inset-top) var(--safe-inset-right) var(--safe-inset-bottom) var(--safe-inset-left)}
+  /* Bigger tap targets — 44px minimum */
+  .ctrl-btn,.desktop-window-btn,.glass-saved-button,button{
+    min-height:44px;
+    min-width:44px;
+  }
+  #search-area input{font-size:16px}
+  /* Bottom bar safe area */
+  #bottom-bar{bottom:calc(var(--safe-inset-bottom,8px) + 8px)}
+  #bottom-bar.stage-mode{bottom:calc(var(--safe-inset-bottom,8px) + 8px)}
+  #bottom-handle{bottom:calc(var(--safe-inset-bottom,8px) + 8px)}
+  /* Fix hover states — convert to active/tap */
+  .ctrl-btn:hover{background:transparent;transform:none;text-shadow:none;box-shadow:none}
+  .ctrl-btn:active{color:#fff;background:rgba(255,255,255,.08);transform:scale(.94);text-shadow:0 0 10px rgba(0,245,212,.12)}
+  /* Volume/Quality popover — click toggle instead of hover */
+  .volume-control .volume-popover,
+  .quality-control .quality-popover{transition:opacity .15s,transform .15s}
+  .volume-control:not(.open) .volume-popover,
+  .quality-control:not(.open) .quality-popover{opacity:0!important;pointer-events:none!important;transform:translateX(-50%) translateY(8px)!important}
+  .volume-control.open .volume-popover,
+  .quality-control.open .quality-popover{opacity:1!important;pointer-events:auto!important;transform:translateX(-50%) translateY(0)!important}
+  /* Bottom bar always visible via tap */
+  #bottom-handle{opacity:.55;transform:translateX(-50%) translateY(0) scale(1)}
+  #bottom-handle span{transform:scaleX(1);opacity:1}
+  /* Minimum font size boost */
+  .tag-vip,.tag-podcast{font-size:10.5px!important}
+  .tag-source{font-size:10px!important}
+  .quality-option small{font-size:11px!important}
+  #quality-btn.quality-pill{font-size:12px!important}
+  #volume-value{font-size:11px!important}
+  .fx-color-row-label small{font-size:11px!important}
+  .lyric-swatch.auto{font-size:10.5px!important}
+  .fx-dev-badge{font-size:10.5px!important}
+  .control-artist{font-size:12px!important}
+  .mini-queue-count{font-size:11.5px!important}
+  .mini-queue-empty{font-size:12px!important}
+  .mini-queue-sub{font-size:11.5px!important}
+  .collect-empty{font-size:12px!important}
+  .account-hint{font-size:12px!important}
+  .hotkey-note{font-size:12px!important}
+  .hotkey-group-title{font-size:12px!important}
+  .hotkey-sub{font-size:12px!important}
+  .hotkey-status{font-size:12px!important}
+  .panel-tab{font-size:12px!important}
+  .fx-panel-tabs button{font-size:12px!important}
+  .fx-slider label{font-size:12.5px!important}
+  .fx-color-row-label{font-size:12px!important}
+  .fx-toggle{font-size:12.5px!important}
+  .fx-seg button{font-size:12.5px!important}
+  .fx-advanced-head{font-size:12.5px!important}
+  .fx-mini-btn{font-size:12.5px!important}
+  .cover-color-hint{font-size:12px!important}
+  .cover-color-head{font-size:12px!important}
+  .color-lab-head{font-size:12px!important}
+  .fx-font-grid button{font-size:12px!important}
+  .desktop-mode-btn{font-size:12px!important}
+  .search-history-chip{font-size:12.5px!important}
+  .search-result-meta{font-size:12px!important}
+  .home-weather-pill{font-size:12px!important}
+  .home-chip{font-size:12.5px!important}
+  .home-section-note{font-size:12px!important}
+  .home-card-sub{font-size:12px!important}
+  .user-capsule-hide-btn{font-size:12px!important}
+  #user-vip-tag,.top-account-vip{font-size:10.5px!important}
+  .update-kicker{font-size:11px!important}
+  .update-footnote{font-size:12.5px!important}
+  #thumb-artist{font-size:12px!important}
+  .splash-sub{font-size:11px!important}
+  .splash-enter{font-size:12px!important}
+  #trial-banner .login-link{font-size:12px!important}
+  .login-platform-tabs button,.user-platform-tabs button{font-size:12.5px!important}
+  .qq-cookie-input{font-size:12px!important}
+  .detail-sub{font-size:12px!important}
+  .detail-loading,.detail-empty{font-size:12.5px!important}
+  .hot-comment-section-label{font-size:12.5px!important}
+  .hot-comment-rank{font-size:12px!important}
+  .artist-song-rank{font-size:12px!important}
+  .local-beat-status{font-size:12.5px!important}
+  .custom-lyric-status{font-size:12.5px!important}
+  #ai-depth-chip{font-size:12px!important}
+  #beat-chip{font-size:12px!important}
+  .source-fallback-body{font-size:12.5px!important}
+  .visual-guide-hint{font-size:12px!important}
+  #fx-fab-hide-btn{font-size:12px!important}
+  .pl-detail-row-title{font-size:12.5px!important}
+  .gesture-hud{font-size:13px!important}
+  .gesture-confirm{font-size:11.5px!important}
+  .gesture-legend{font-size:11px!important}
+  #time-display{font-size:11px!important;min-width:60px}
+  /* Horizontal scroll snap for tabs */
+  .fx-panel-tabs{
+    scroll-snap-type:x mandatory;
+    -webkit-overflow-scrolling:touch;
+    scroll-behavior:smooth;
+  }
+  .fx-panel-tabs button{scroll-snap-align:start}
+  /* Stage lyrics smaller on mobile */
+  .stage-lyric-line{font-size:clamp(22px,5vw,38px)!important;max-width:96vw!important;padding:0 12px!important}
+  /* Increase tap target for mini queue items */
+  .mini-queue-item{min-height:48px;padding:10px}
+  .mini-queue-remove{min-width:32px;min-height:32px}
+  /* Cover color art bigger touch area */
+  #cover-color-art{min-height:120px}
+  /* Lyrics stage height adaptive */
+  #stage-lyrics{max-height:60vh;overflow:hidden}
+}
+@media (max-width:420px){
+  #play-btn{width:56px;height:56px}
+  #play-btn svg{width:26px;height:26px}
+  .ctrl-btn{width:38px;height:38px}
+  .ctrl-btn svg{width:20px;height:20px}
+  #time-display{font-size:11px;min-width:56px}
+  #controls{gap:6px}
+  .control-cluster{gap:4px}
+  /* Even smaller stage lyrics */
+  .stage-lyric-line{font-size:clamp(18px,4.5vw,30px)!important}
+  /* Mini queue tighter */
+  .mini-queue-popover{width:calc(100vw - 20px)!important;left:50%!important}
+  /* Drop overlay text */
+  #drop-overlay .drop-text{font-size:14px!important}
+}
 </style>
 </head>
 <body>
@@ -2027,7 +2187,7 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
   <div class="cover-color-pop" id="cover-color-pop">
     <div class="cover-color-head"><span>Cover Picker</span><button class="cover-color-close" type="button" onclick="closeCoverColorPicker()">×</button></div>
     <div class="cover-color-body">
-      <div class="cover-color-art" id="cover-color-art" onclick="pickCoverColorFromArt(event)" onmousemove="moveCoverColorLoupe(event)" onmouseleave="hideCoverColorLoupe()"></div>
+      <div class="cover-color-art" id="cover-color-art" onclick="pickCoverColorFromArt(event)" onpointermove="moveCoverColorLoupe(event)" onpointerleave="hideCoverColorLoupe()" onpointerdown="moveCoverColorLoupe(event)"></div>
       <div class="cover-color-side">
         <div class="cover-color-preview" id="cover-color-preview"></div>
         <div class="cover-color-hint" id="cover-color-hint">点击专辑封面任意位置取色，或使用下方推荐色。</div>
@@ -2456,7 +2616,7 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
 
 <input type="file" id="file-input" accept=".mp3,.flac,.wav,.ogg,.m4a,.jpg,.jpeg,.png,.webp" multiple style="display:none">
 <input type="file" id="background-image-input" accept=".jpg,.jpeg,.png,.webp,.mp4,.webm,.mov,image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" style="display:none">
-<div id="drop-overlay"><div class="drop-text">拖放音乐或封面</div></div>
+<div id="drop-overlay"><div class="drop-text">拖放音乐或封面</div><div class="drop-mobile-fallback"><input type="file" id="mobile-file-input" accept="audio/*,image/*" multiple onchange="handleMobileFileInput(this)" style="display:none"><button class="fx-mini-btn" onclick="document.getElementById('mobile-file-input').click()" style="margin-top:18px;padding:12px 24px;font-size:13px;display:none">📁 选择文件</button></div></div>
 <div id="free-camera-hint"><b>自由镜头</b> R 固定/退出 · WASD 移动 · 鼠标转向 · Shift 加速 · Space/Ctrl 升降 · Q/E 轻微旋转 · 滚轮景深 · K 回正</div>
 <div id="loading-overlay"><div class="spinner"></div></div>
 
@@ -2670,6 +2830,78 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
 
 <script>
 'use strict';
+
+// ============================================================
+//  Mobile Detection & Adaptation
+// ============================================================
+var MOBILE = (function(){
+  var touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
+  var small = Math.max(innerWidth, innerHeight) < 1024;
+  var phone = touch && Math.max(innerWidth, innerHeight) < 900;
+  return {
+    touch: touch,
+    small: small,
+    phone: phone,
+    portrait: innerWidth < innerHeight,
+    width: Math.min(innerWidth, innerHeight),
+    height: Math.max(innerWidth, innerHeight)
+  };
+})();
+function updateMobileMetrics() {
+  MOBILE.touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  MOBILE.small = Math.max(innerWidth, innerHeight) < 1024;
+  MOBILE.phone = MOBILE.touch && Math.max(innerWidth, innerHeight) < 900;
+  MOBILE.portrait = innerWidth < innerHeight;
+  MOBILE.width = Math.min(innerWidth, innerHeight);
+  MOBILE.height = Math.max(innerWidth, innerHeight);
+  if (MOBILE.phone) {
+    document.documentElement.classList.add('is-mobile-phone');
+  } else {
+    document.documentElement.classList.remove('is-mobile-phone');
+  }
+  if (MOBILE.touch) {
+    document.documentElement.classList.add('is-touch-device');
+  } else {
+    document.documentElement.classList.remove('is-touch-device');
+  }
+}
+updateMobileMetrics();
+window.addEventListener('resize', function(){
+  updateMobileMetrics();
+  if (typeof camera !== 'undefined' && camera) {
+    camera.aspect = innerWidth / Math.max(1, innerHeight);
+    camera.updateProjectionMatrix();
+  }
+  if (typeof renderer !== 'undefined' && renderer) {
+    renderer.setSize(innerWidth, innerHeight);
+    if (typeof applyRendererPowerMode === 'function') applyRendererPowerMode();
+  }
+});
+if (MOBILE.touch) {
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(function(){
+      var handle = document.getElementById('bottom-handle');
+      if (handle) handle.style.opacity = '0.55';
+    }, 1200);
+  });
+}
+
+// ============================================================
+//  Mobile File Input Handler
+// ============================================================
+function handleMobileFileInput(input) {
+  if (!input || !input.files || !input.files.length) return;
+  if (typeof handleFiles === 'function') handleFiles(input.files);
+  input.value = '';
+}
+if (MOBILE.touch) {
+  document.addEventListener('DOMContentLoaded', function(){
+    var fallback = document.querySelector('#drop-overlay .drop-mobile-fallback');
+    if (fallback) fallback.style.display = 'block';
+    var btn = fallback ? fallback.querySelector('button') : null;
+    if (btn) btn.style.display = 'inline-block';
+  });
+}
 
 // ============================================================
 //  Global State
@@ -3719,14 +3951,14 @@ function installRenderPowerHooks() {
 var scene = new THREE.Scene();
 scene.background = null;
 var camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
-var RENDER_DPR_CAP = 1.35;
-var RENDER_PIXEL_BUDGET = 5200000;
+var RENDER_DPR_CAP = (typeof MOBILE !== 'undefined' && MOBILE && MOBILE.phone) ? 0.95 : 1.35;
+var RENDER_PIXEL_BUDGET = (typeof MOBILE !== 'undefined' && MOBILE && MOBILE.phone) ? 1500000 : (typeof MOBILE !== 'undefined' && MOBILE && MOBILE.small) ? 2800000 : 5200000;
 var RENDER_MIN_DPR = 0.72;
 // 0 = display vsync. Keep visible playback high-refresh capable instead of capping 120Hz+ screens to 60/72.
 var RENDER_VISIBLE_VSYNC = true;
-var RENDER_ACTIVE_FPS = 0;
-var RENDER_LARGE_FPS = 0;
-var RENDER_HUGE_FPS = 0;
+var RENDER_ACTIVE_FPS = (typeof MOBILE !== 'undefined' && MOBILE && MOBILE.phone) ? 30 : 0;
+var RENDER_LARGE_FPS = (typeof MOBILE !== 'undefined' && MOBILE && MOBILE.phone) ? 24 : 0;
+var RENDER_HUGE_FPS = (typeof MOBILE !== 'undefined' && MOBILE && MOBILE.phone) ? 20 : 0;
 var RENDER_INTERACTION_FPS = 0;
 var RENDER_INTERACTION_LARGE_FPS = 0;
 var RENDER_INTERACTION_HUGE_FPS = 0;
@@ -6402,7 +6634,7 @@ console.log('v7 shell loaded, JS pending');
 //  浮空粒子层 (独立 Points)
 //   v7.1: 速度大幅放慢, 改用 sin/cos 长周期漂移 (优雅而非乱飞)
 // ============================================================
-var FLOAT_COUNT = 1300;
+var FLOAT_COUNT = (typeof MOBILE !== 'undefined' && MOBILE && MOBILE.phone) ? 350 : (typeof MOBILE !== 'undefined' && MOBILE && MOBILE.small) ? 600 : 1300;
 var floatGroup = null;
 var floatPositionsArr = null, floatBaseArr = null, floatPhaseArr = null, floatColorArr = null;
 
@@ -7515,6 +7747,12 @@ function normalizePerformanceQuality(v) {
 function coverParticleGridForResolution(v) {
   var grid = Math.round(118 * normalizeCoverResolution(v));
   grid = Math.max(88, Math.min(183, grid));
+  // Mobile cap: drastically reduce particle count for phone GPUs
+  if (typeof MOBILE !== 'undefined' && MOBILE && MOBILE.phone) {
+    grid = Math.min(grid, 79); // ~6241 particles max on phone
+  } else if (typeof MOBILE !== 'undefined' && MOBILE && MOBILE.small) {
+    grid = Math.min(grid, 109); // ~11881 particles max on small tablets
+  }
   return grid % 2 ? grid : grid + 1;
 }
 function coverParticleCountLabel(v) {
@@ -14960,6 +15198,51 @@ renderer.domElement.addEventListener('contextmenu', function(e){
   if (!shelfPinnedOpen && typeof setFocusZone === 'function') setFocusZone(null, true);
 });
 
+// Long-press (500ms) context menu for touch devices
+(function(){
+  var longPressTimer = null;
+  var longPressStart = null;
+  var LONG_PRESS_MS = 500;
+  var LONG_PRESS_MOVE_TOLERANCE = 10;
+
+  function clearLongPress() {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    longPressStart = null;
+  }
+
+  renderer.domElement.addEventListener('pointerdown', function(e){
+    if (e.pointerType !== 'touch') return;
+    if (document.body.classList.contains('splash-active')) return;
+    if (isPointerOverUi(e)) return;
+    longPressStart = { x: e.clientX, y: e.clientY };
+    longPressTimer = setTimeout(function(){
+      longPressTimer = null;
+      if (!longPressStart) return;
+      // Fire synthetic contextmenu
+      var evt = new MouseEvent('contextmenu', {
+        bubbles: true, cancelable: true,
+        clientX: longPressStart.x, clientY: longPressStart.y
+      });
+      renderer.domElement.dispatchEvent(evt);
+      longPressStart = null;
+    }, LONG_PRESS_MS);
+  });
+
+  renderer.domElement.addEventListener('pointermove', function(e){
+    if (!longPressStart || e.pointerType !== 'touch') return;
+    var dx = e.clientX - longPressStart.x;
+    var dy = e.clientY - longPressStart.y;
+    if (Math.sqrt(dx*dx + dy*dy) > LONG_PRESS_MOVE_TOLERANCE) clearLongPress();
+  });
+
+  renderer.domElement.addEventListener('pointerup', function(e){
+    if (e.pointerType === 'touch') clearLongPress();
+  });
+  renderer.domElement.addEventListener('pointercancel', function(e){
+    if (e.pointerType === 'touch') clearLongPress();
+  });
+})();
+
 // 滚轮: 在真实卡片或右侧窄热区内滚卡片; 否则保留给封面粒子/视角
 //   side 模式: 常驻不再用半屏预览区接管滚轮
 //   stage 模式: 鼠标 y > 60% 屏幕高
@@ -15223,9 +15506,12 @@ function toggleQualityPanel(e) {
 }
 function bindQualityControl() {
   var wrap = document.getElementById('quality-control');
+  var isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   if (wrap) {
-    wrap.addEventListener('mouseenter', function(){ wrap.classList.add('open'); });
-    wrap.addEventListener('mouseleave', function(){ setTimeout(function(){ if (!wrap.matches(':hover')) wrap.classList.remove('open'); }, 260); });
+    if (!isMobile) {
+      wrap.addEventListener('mouseenter', function(){ wrap.classList.add('open'); });
+      wrap.addEventListener('mouseleave', function(){ setTimeout(function(){ if (!wrap.matches(':hover')) wrap.classList.remove('open'); }, 260); });
+    }
   }
   document.addEventListener('click', function(e){
     if (wrap && !wrap.contains(e.target)) wrap.classList.remove('open');
@@ -16409,6 +16695,28 @@ function renderDetailComments(comments) {
     '</div>';
   }).join('') + '</div>';
 }
+
+function renderHotComments(comments) {
+  if (!comments || !comments.length) return '';
+  return '<div class="hot-comment-section">' +
+    '<div class="hot-comment-section-head">' +
+      '<span class="hot-comment-section-icon">🔥</span>' +
+      '<span class="hot-comment-section-label">最火评论</span>' +
+    '</div>' +
+    comments.slice(0, 5).map(function(c, i){
+      var user = c.user || {};
+      var avatar = user.avatar ? coverUrlWithSize(user.avatar, 64) : '';
+      var likeBadge = c.likedCount ? ('<span class="hot-comment-like-badge"><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>' + escHtml(String(c.likedCount)) + '</span>') : '';
+      return '<div class="hot-comment-item">' +
+        '<div class="hot-comment-rank">' + (i + 1) + '</div>' +
+        (avatar ? '<img class="comment-avatar" src="' + avatar + '" alt="">' : '<div class="comment-avatar"></div>') +
+        '<div class="comment-main"><div class="comment-meta">' + escHtml(user.nickname || '音乐用户') + likeBadge + (c.time ? (' · ' + escHtml(commentTimeLabel(c.time))) : '') + '</div>' +
+        '<div class="comment-text">' + escHtml(c.content || '') + '</div></div>' +
+      '</div>';
+    }).join('') +
+  '</div>';
+}
+
 function renderArtistSongList(songs) {
   detailArtistSongs = (songs || []).map(cloneSong);
   if (!detailArtistSongs.length) return '<div class="detail-empty">暂无热门歌曲</div>';
@@ -16552,19 +16860,34 @@ function openTrackDetailModal(type, songOverride) {
         (getCustomCoverForSong(song) ? '<span class="detail-chip">自定义封面</span>' : '') +
         (hasCustomLyricForSong(song) ? '<span class="detail-chip">自定义歌词</span>' : '') +
       '</div>' +
-      '<div class="detail-section"><div class="detail-section-head"><div class="detail-section-title">' + detailCommentTitle + '</div></div><div id="song-comments">' + (detailCanLoadComments ? '<div class="detail-loading">正在载入评论...</div>' : '<div class="detail-empty">' + detailEmptyText + '</div>') + '</div></div>';
+      '<div class="detail-section"><div class="detail-section-head"><div class="detail-section-title">' + detailCommentTitle + '</div></div><div id="song-hot-comments"></div><div id="song-comments">' + (detailCanLoadComments ? '<div class="detail-loading">正在载入评论...</div>' : '<div class="detail-empty">' + detailEmptyText + '</div>') + '</div></div>';
     if (detailCanLoadComments) {
       var commentUrl = detailIsQQ
         ? ('/api/qq/song/comments?id=' + encodeURIComponent(song.qqId || '') + '&mid=' + encodeURIComponent(song.mid || song.songmid || song.id || '') + '&limit=18')
         : ('/api/song/comments?id=' + encodeURIComponent(song.id) + '&limit=18');
       apiJson(commentUrl).then(function(r){
         if (seq !== trackDetailSeq) return;
+        var hotTarget = document.getElementById('song-hot-comments');
         var target = document.getElementById('song-comments');
-        if (target) target.innerHTML = r && !r.error ? renderDetailComments(r.comments || []) : '<div class="detail-empty">评论加载失败</div>';
+        if (r && !r.error) {
+          if (hotTarget && r.hotComments && r.hotComments.length) {
+            hotTarget.innerHTML = renderHotComments(r.hotComments);
+          } else if (hotTarget) {
+            hotTarget.innerHTML = '';
+          }
+          if (target) target.innerHTML = renderDetailComments(r.comments || []);
+        } else {
+          if (hotTarget) hotTarget.innerHTML = '';
+          if (target) target.innerHTML = '<div class="detail-empty">评论加载失败</div>';
+        }
         bindTrackDetailScrollers();
       }).catch(function(){
+        var hotTarget = document.getElementById('song-hot-comments');
         var target = document.getElementById('song-comments');
-        if (seq === trackDetailSeq && target) target.innerHTML = '<div class="detail-empty">评论加载失败</div>';
+        if (seq === trackDetailSeq) {
+          if (hotTarget) hotTarget.innerHTML = '';
+          if (target) target.innerHTML = '<div class="detail-empty">评论加载失败</div>';
+        }
         bindTrackDetailScrollers();
       });
     }
@@ -18015,9 +18338,12 @@ function bindVolumeControls() {
       if (wrap) wrap.classList.remove('open');
     }, 520);
   }
+  var isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   if (wrap) {
-    wrap.addEventListener('mouseenter', keepVolumePanelOpen);
-    wrap.addEventListener('mouseleave', closeVolumePanelSoon);
+    if (!isMobile) {
+      wrap.addEventListener('mouseenter', keepVolumePanelOpen);
+      wrap.addEventListener('mouseleave', closeVolumePanelSoon);
+    }
   }
   if (slider) {
     slider.addEventListener('input', function(){ setVolume(slider.value, true); });
